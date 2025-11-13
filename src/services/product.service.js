@@ -1,0 +1,452 @@
+const Product = require("../models/product.model");
+const {
+  getPaginationParams,
+  buildPaginationResponse,
+} = require("../utils/pagination");
+const Category = require("../models/category.model");
+const Review = require("../models/review.model");
+
+class ProductService {
+  // Get all products with filters and pagination
+  async getAllProducts(filters = {}, options = {}) {
+    const {
+      page = 1,
+      limit = 10,
+      sort = "-createdAt",
+      category,
+      brand,
+      minPrice,
+      maxPrice,
+      tags,
+      search,
+      isActive = true,
+    } = { ...filters, ...options };
+
+    // Build query
+    const query = { isActive };
+
+    // Filter by category
+    if (category) {
+      query.category = category;
+    }
+
+    // Filter by brand
+    if (brand) {
+      query.brand = brand;
+    }
+
+    // Filter by price range
+    if (minPrice || maxPrice) {
+      query["price.currentPrice"] = {};
+      if (minPrice) query["price.currentPrice"].$gte = Number(minPrice);
+      if (maxPrice) query["price.currentPrice"].$lte = Number(maxPrice);
+    }
+
+    // Filter by tags
+    if (tags) {
+      const tagArray = Array.isArray(tags) ? tags : tags.split(",");
+      query.tags = { $in: tagArray };
+    }
+
+    // Search by name or description
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Get total count for pagination
+    const total = await Product.countDocuments(query);
+
+    // Calculate pagination parameters
+    const paginationParams = getPaginationParams(page, limit, total);
+
+    // Execute query
+    const products = await Product.find(query)
+      .populate("category", "name slug")
+      .sort(sort)
+      .skip(paginationParams.skip)
+      .limit(paginationParams.limit)
+      .lean();
+
+    return {
+      data: products,
+      pagination: {
+        currentPage: paginationParams.currentPage,
+        pageSize: paginationParams.pageSize,
+        totalItems: paginationParams.totalItems,
+        totalPages: paginationParams.totalPages,
+        hasNextPage: paginationParams.hasNextPage,
+        hasPrevPage: paginationParams.hasPrevPage,
+        nextPage: paginationParams.nextPage,
+        prevPage: paginationParams.prevPage,
+      },
+    };
+  }
+
+  // Get single product by ID or slug
+  async getProductById(id) {
+    const product = await Product.findById(id)
+      .populate("category", "name slug")
+      .populate("reviews");
+
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    return product;
+  }
+
+  async getProductBySlug(slug) {
+    const product = await Product.findOne({ slug })
+      .populate("category", "name slug")
+      .populate("reviews");
+
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    return product;
+  }
+  // Create new product
+  async createProduct(data) {
+    // Only allow specific fields to prevent mass assignment vulnerabilities
+    const allowedData = {
+      name: data.name,
+      description: data.description,
+      slug: data.slug,
+      category: data.category,
+      brand: data.brand,
+      images: data.images,
+      price: data.price,
+      variants: data.variants,
+      tags: data.tags,
+      isActive: data.isActive,
+      isNewArrival: data.isNewArrival,
+      isFeatured: data.isFeatured,
+      onSale: data.onSale,
+    };
+
+    // Check if slug already exists
+    if (data.slug) {
+      const existingProduct = await Product.findOne({ slug: data.slug });
+      if (existingProduct) {
+        throw new Error("Product with this slug already exists");
+      }
+    }
+
+    const product = new Product(allowedData);
+    await product.save();
+
+    return product;
+  }
+
+  // Update product
+  async updateProduct(id, data) {
+    // Only allow specific fields to prevent mass assignment vulnerabilities
+    const allowedData = {};
+    const allowedFields = [
+      "name",
+      "description",
+      "slug",
+      "category",
+      "brand",
+      "images",
+      "price",
+      "variants",
+      "tags",
+    ];
+
+    // Filter only allowed fields
+    allowedFields.forEach((field) => {
+      if (data[field] !== undefined) {
+        allowedData[field] = data[field];
+      }
+    });
+
+    // Check if slug is being updated and if it already exists
+    if (data.slug) {
+      const existingProduct = await Product.findOne({
+        slug: data.slug,
+        _id: { $ne: id },
+      });
+      if (existingProduct) {
+        throw new Error("Product with this slug already exists");
+      }
+    }
+
+    const product = await Product.findByIdAndUpdate(id, allowedData, {
+      new: true,
+      runValidators: true,
+    }).populate("category", "name slug");
+
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    return product;
+  }
+
+  // Delete product (soft delete)
+  async deleteProduct(id) {
+    const product = await Product.findByIdAndUpdate(
+      id,
+      { isActive: false },
+      { new: true }
+    );
+
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    return product;
+  }
+
+  // Permanently delete product
+  async permanentDeleteProduct(id) {
+    const product = await Product.findByIdAndDelete(id);
+
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    return product;
+  }
+
+  // Add variant to product
+  async addVariant(productId, variantData, uploads) {
+    // Only allow specific variant fields
+    const allowedVariantData = {
+      sku: variantData.sku,
+      color: variantData.color,
+      size: variantData.size,
+      stock: variantData.stock,
+      price: variantData.price,
+      images: variantData.images,
+    };
+
+    // Check if SKU already exists
+    const existingProduct = await Product.findOne({
+      "variants.sku": allowedVariantData.sku,
+    });
+
+    if (existingProduct) {
+      throw new Error("SKU already exists");
+    }
+
+    const product = await Product.findByIdAndUpdate(
+      productId,
+      { $push: { variants: allowedVariantData } },
+      { new: true, runValidators: true }
+    );
+
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    return product;
+  }
+
+  // Update variant
+  async updateVariant(productId, variantId, variantData) {
+    // Only allow specific variant fields
+    const allowedVariantData = {
+      _id: variantId, // Keep the variant ID
+    };
+
+    const allowedFields = ["sku", "color", "size", "stock", "images", "price"];
+    allowedFields.forEach((field) => {
+      if (variantData[field] !== undefined) {
+        allowedVariantData[field] = variantData[field];
+      }
+    });
+
+    const product = await Product.findOneAndUpdate(
+      { _id: productId, "variants._id": variantId },
+      { $set: { "variants.$": allowedVariantData } },
+      { new: true, runValidators: true }
+    );
+
+    if (!product) {
+      throw new Error("Product or variant not found");
+    }
+
+    return product;
+  }
+
+  // Delete variant
+  async deleteVariant(productId, variantId) {
+    const product = await Product.findByIdAndUpdate(
+      productId,
+      { $pull: { variants: { _id: variantId } } },
+      { new: true }
+    );
+
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    return product;
+  }
+
+  // Get products by category
+  async getProductsByCategory(categoryId, options = {}) {
+    const { page = 1, limit = 10, sort = "-createdAt" } = options;
+
+    const query = {
+      category: categoryId,
+      isActive: true,
+    };
+
+    // Get total count for pagination
+    const total = await Product.countDocuments(query);
+
+    // Calculate pagination parameters
+    const paginationParams = getPaginationParams(page, limit, total);
+
+    const products = await Product.find(query)
+      .populate("category", "name slug")
+      .sort(sort)
+      .skip(paginationParams.skip)
+      .limit(paginationParams.limit)
+      .lean();
+
+    return {
+      data: products,
+      pagination: {
+        currentPage: paginationParams.currentPage,
+        pageSize: paginationParams.pageSize,
+        totalItems: paginationParams.totalItems,
+        totalPages: paginationParams.totalPages,
+        hasNextPage: paginationParams.hasNextPage,
+        hasPrevPage: paginationParams.hasPrevPage,
+        nextPage: paginationParams.nextPage,
+        prevPage: paginationParams.prevPage,
+      },
+    };
+  }
+
+  // Get products by category slug
+  async getProductsByCategorySlug(slug, options = {}) {
+    const { page = 1, limit = 10, sort = "-createdAt" } = options;
+
+    // First, find the category by slug
+    const category = await Category.findOne({ slug, isActive: true });
+    if (!category) {
+      throw new Error("Category not found");
+    }
+
+    // Get all child categories as well
+    const childCategories = await Category.find({
+      parentCategory: category._id,
+      isActive: true,
+    }).select("_id");
+
+    // Create array of category IDs (parent + children)
+    const categoryIds = [
+      category._id,
+      ...childCategories.map((child) => child._id),
+    ];
+
+    const query = {
+      category: { $in: categoryIds },
+      isActive: true,
+    };
+
+    // Get total count for pagination
+    const total = await Product.countDocuments(query);
+
+    // Calculate pagination parameters
+    const paginationParams = getPaginationParams(page, limit, total);
+
+    const products = await Product.find(query)
+      .populate("category", "name slug")
+      .sort(sort)
+      .skip(paginationParams.skip)
+      .limit(paginationParams.limit)
+      .lean();
+
+    return {
+      data: products,
+      category: {
+        _id: category._id,
+        name: category.name,
+        slug: category.slug,
+        description: category.description,
+      },
+      pagination: {
+        currentPage: paginationParams.currentPage,
+        pageSize: paginationParams.pageSize,
+        totalItems: paginationParams.totalItems,
+        totalPages: paginationParams.totalPages,
+        hasNextPage: paginationParams.hasNextPage,
+        hasPrevPage: paginationParams.hasPrevPage,
+        nextPage: paginationParams.nextPage,
+        prevPage: paginationParams.prevPage,
+      },
+    };
+  }
+
+  // Get featured products (based on sales count)
+  async getFeaturedProductsSimple(limit = 10) {
+    const products = await Product.find({ isActive: true })
+      .populate("category", "name slug")
+      .sort("-soldCount -createdAt") // Sắp xếp theo số lượng bán, sau đó theo thời gian tạo
+      .limit(Number(limit))
+      .lean();
+
+    return products;
+  }
+
+  // Get featured products (simple - 10 items only)
+  async getFeaturedProducts(query) {
+    const filter = {
+      isActive: true,
+      isFeatured: true,
+    };
+
+    const products = await Product.find(filter)
+      .populate("category", "name slug")
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    return products;
+  }
+
+  // Get new arrival products (simple - 10 items only)
+  async getNewArrivalProducts(query) {
+    const filter = {
+      isActive: true,
+      isNewArrival: true,
+    };
+
+    const products = await Product.find(filter)
+      .populate("category", "name slug")
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    return products;
+  }
+
+  // Get products on sale (simple - 10 items only)
+  async getOnSaleProducts(query) {
+    const filter = {
+      isActive: true,
+      onSale: true,
+      "price.discountPrice": { $ne: null }, // Chỉ lấy sản phẩm có giá giảm
+    };
+
+    const products = await Product.find(filter)
+      .populate("category", "name slug")
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    return products;
+  }
+}
+
+module.exports = new ProductService();
