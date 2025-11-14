@@ -17,29 +17,51 @@ const priceSchema = joi.object({
   }),
 });
 
-// Validate variant object
+// Update product validator (all fields optional)
+// Trong file validator của bạn
 const variantSchema = joi.object({
-  _id: joi.string().optional(), // Allow _id from MongoDB
+  // THÊM .optional() HOẶC .allow(null) CHO CÁC FIELD KHÔNG BẮT BUỘC
+  name: joi.string().optional().allow("").messages({
+    "string.base": "Variant name must be a string",
+  }),
   sku: joi.string().required().messages({
     "string.base": "SKU must be a string",
     "any.required": "SKU is required",
   }),
-  color: joi.string().allow("").messages({
+  color: joi.string().optional().allow("").messages({
     "string.base": "Color must be a string",
   }),
-  size: joi.string().allow("").messages({
+  size: joi.string().optional().allow("").messages({
     "string.base": "Size must be a string",
   }),
-  stock: joi.number().integer().min(0).default(0).messages({
+  stock: joi.number().integer().min(0).required().messages({
     "number.base": "Stock must be a number",
     "number.integer": "Stock must be an integer",
     "number.min": "Stock cannot be negative",
+    "any.required": "Stock is required",
   }),
-  images: joi.array().items(joi.string().uri()).messages({
+  images: joi.array().items(joi.string().uri()).optional().messages({
     "array.base": "Images must be an array",
     "string.uri": "Each image must be a valid URL",
   }),
-  price: priceSchema,
+  price: joi
+    .object({
+      currentPrice: joi.number().min(0).required().messages({
+        "number.base": "Current price must be a number",
+        "number.min": "Current price cannot be negative",
+        "any.required": "Current price is required",
+      }),
+      discountPrice: joi.number().min(0).optional().allow(null).messages({
+        "number.base": "Discount price must be a number",
+        "number.min": "Discount price cannot be negative",
+      }),
+      currency: joi.string().default("VND").messages({
+        "string.base": "Currency must be a string",
+      }),
+      _id: joi.string().optional().allow(""),
+    })
+    .optional(),
+  _id: joi.string().optional().allow(""),
 });
 
 // Create product validator
@@ -103,53 +125,76 @@ const createProductValidator = joi.object({
   }),
 });
 
-// Update product validator (all fields optional)
-const updateProductValidator = joi.object({
-  name: joi.string().min(3).max(200).messages({
-    "string.base": "Product name must be a string",
-    "string.min": "Product name must be at least 3 characters long",
-    "string.max": "Product name must be at most 200 characters long",
-  }),
-  description: joi.string().min(10).messages({
-    "string.base": "Description must be a string",
-    "string.min": "Description must be at least 10 characters long",
-  }),
-  slug: joi
-    .string()
-    .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    .messages({
-      "string.base": "Slug must be a string",
-      "string.pattern.base":
-        "Slug must be lowercase with hyphens only (e.g., product-name)",
+const updateProductValidator = joi
+  .object({
+    id: joi.string().optional(), // THÊM FIELD ID VÀO VALIDATOR
+    name: joi.string().min(3).max(200).optional().messages({
+      "string.base": "Product name must be a string",
+      "string.min": "Product name must be at least 3 characters long",
+      "string.max": "Product name must be at most 200 characters long",
     }),
-  category: joi
-    .string()
-    .pattern(/^[0-9a-fA-F]{24}$/)
-    .messages({
-      "string.base": "Category must be a string",
-      "string.pattern.base": "Category must be a valid MongoDB ObjectId",
+    description: joi.string().min(10).optional().messages({
+      "string.base": "Description must be a string",
+      "string.min": "Description must be at least 10 characters long",
     }),
-  brand: joi.string().allow("").messages({
-    "string.base": "Brand must be a string",
-  }),
-  images: joi.array().items(joi.string().uri()).messages({
-    "array.base": "Images must be an array",
-    "string.uri": "Each image must be a valid URL",
-  }),
-  price: priceSchema.messages({
-    "object.base": "Price must be an object",
-  }),
-  variants: joi.array().items(variantSchema).messages({
-    "array.base": "Variants must be an array",
-  }),
-  tags: joi.array().items(joi.string()).messages({
-    "array.base": "Tags must be an array",
-    "string.base": "Each tag must be a string",
-  }),
-  isActive: joi.boolean().messages({
-    "boolean.base": "isActive must be a boolean",
-  }),
-});
+    slug: joi
+      .string()
+      .pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      .optional()
+      .messages({
+        "string.base": "Slug must be a string",
+        "string.pattern.base":
+          "Slug must be lowercase with hyphens only (e.g., product-name)",
+      }),
+    category: joi
+      .string()
+      .pattern(/^[0-9a-fA-F]{24}$/)
+      .optional()
+      .messages({
+        "string.base": "Category must be a string",
+        "string.pattern.base": "Category must be a valid MongoDB ObjectId",
+      }),
+    brand: joi.string().allow("").optional().messages({
+      "string.base": "Brand must be a string",
+    }),
+    images: joi.array().items(joi.string().uri()).optional().messages({
+      "array.base": "Images must be an array",
+      "string.uri": "Each image must be a valid URL",
+    }),
+    price: priceSchema.optional().messages({
+      "object.base": "Price must be an object",
+    }),
+    variants: joi.array().items(variantSchema).optional().messages({
+      "array.base": "Variants must be an array",
+    }),
+    tags: joi.array().items(joi.string()).optional().messages({
+      "array.base": "Tags must be an array",
+      "string.base": "Each tag must be a string",
+    }),
+    isActive: joi.boolean().truthy("true").falsy("false").optional().messages({
+      "boolean.base": "isActive must be a boolean",
+    }),
+    isNewArrival: joi
+      .boolean()
+      .truthy("true")
+      .falsy("false")
+      .optional()
+      .messages({
+        "boolean.base": "isNewArrival must be a boolean",
+      }),
+    isFeatured: joi
+      .boolean()
+      .truthy("true")
+      .falsy("false")
+      .optional()
+      .messages({
+        "boolean.base": "isFeatured must be a boolean",
+      }),
+    onSale: joi.boolean().truthy("true").falsy("false").optional().messages({
+      "boolean.base": "onSale must be a boolean",
+    }),
+  })
+  .min(1);
 
 // Add variant validator
 const addVariantValidator = joi.object({

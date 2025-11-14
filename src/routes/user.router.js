@@ -7,6 +7,7 @@ const {
 } = require("../middlewares/auth.middleware");
 const upload = require("../configs/upload");
 
+// Upload routes
 router.post(
   "/upload-avatar",
   verifyAccessToken,
@@ -14,11 +15,13 @@ router.post(
   userController.uploadAvatar
 );
 
+// Profile routes
 router
   .route("/profile")
   .get(verifyAccessToken, userController.getProfile)
   .put(verifyAccessToken, userController.updateProfile);
 
+// User management routes (Admin only)
 router.get(
   "/",
   verifyAccessToken,
@@ -32,6 +35,8 @@ router.post(
   requireRole("admin"),
   userController.createUser
 );
+
+// UPDATE USER - Sử dụng POST (như bạn muốn)
 router.post(
   "/update",
   verifyAccessToken,
@@ -39,7 +44,7 @@ router.post(
   userController.updateUser
 );
 
-// Specific routes first (before generic /:id)
+// Role management
 router.put(
   "/:id/role",
   verifyAccessToken,
@@ -47,7 +52,7 @@ router.put(
   userController.updateUserRole
 );
 
-// Then generic routes
+// User by ID routes
 router
   .route("/:id")
   .get(verifyAccessToken, requireRole("admin"), userController.getUserById)
@@ -60,11 +65,13 @@ router.delete(
   userController.deleteUser
 );
 
+// Address routes
 router.post("/address", verifyAccessToken, userController.addAddress);
 router.put("/address/:id", verifyAccessToken, userController.updateAddress);
 router.delete("/address/:id", verifyAccessToken, userController.deleteAddress);
 router.get("/address", verifyAccessToken, userController.getAddresses);
 
+// Password management
 router.put(
   "/change-password",
   verifyAccessToken,

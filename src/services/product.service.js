@@ -143,49 +143,84 @@ class ProductService {
   }
 
   // Update product
+  // src/services/product.service.js
   async updateProduct(id, data) {
-    // Only allow specific fields to prevent mass assignment vulnerabilities
-    const allowedData = {};
-    const allowedFields = [
-      "name",
-      "description",
-      "slug",
-      "category",
-      "brand",
-      "images",
-      "price",
-      "variants",
-      "tags",
-    ];
+    try {
+      console.log("=== SERVICE UPDATE PRODUCT ===");
+      console.log("ID:", id);
+      console.log("Raw data:", data);
 
-    // Filter only allowed fields
-    allowedFields.forEach((field) => {
-      if (data[field] !== undefined) {
-        allowedData[field] = data[field];
-      }
-    });
+      // Only allow specific fields
+      const allowedData = {};
+      const allowedFields = [
+        "name",
+        "description",
+        "slug",
+        "category",
+        "brand",
+        "images",
+        "price",
+        "variants",
+        "tags",
+        "isActive",
+        "isNewArrival",
+        "isFeatured",
+        "onSale",
+      ];
 
-    // Check if slug is being updated and if it already exists
-    if (data.slug) {
-      const existingProduct = await Product.findOne({
-        slug: data.slug,
-        _id: { $ne: id },
+      // Filter only allowed fields
+      allowedFields.forEach((field) => {
+        if (data[field] !== undefined) {
+          allowedData[field] = data[field];
+        }
       });
-      if (existingProduct) {
-        throw new Error("Product with this slug already exists");
+
+      console.log("Filtered data:", allowedData);
+
+      // Xử lý boolean fields từ string sang boolean
+      const booleanFields = [
+        "isActive",
+        "isNewArrival",
+        "isFeatured",
+        "onSale",
+      ];
+      booleanFields.forEach((field) => {
+        if (allowedData[field] !== undefined) {
+          if (typeof allowedData[field] === "string") {
+            allowedData[field] = allowedData[field] === "true";
+          }
+        }
+      });
+
+      console.log("After boolean conversion:", allowedData);
+
+      // Check if slug is being updated and if it already exists
+      if (allowedData.slug) {
+        const existingProduct = await Product.findOne({
+          slug: allowedData.slug,
+          _id: { $ne: id },
+        });
+        if (existingProduct) {
+          throw new Error("Product with this slug already exists");
+        }
       }
+
+      console.log("Final data to update:", allowedData);
+
+      const product = await Product.findByIdAndUpdate(id, allowedData, {
+        new: true,
+        runValidators: true,
+      }).populate("category", "name slug");
+
+      if (!product) {
+        throw new Error("Product not found");
+      }
+
+      return product;
+    } catch (error) {
+      console.error("Error in updateProduct service:", error);
+      throw error;
     }
-
-    const product = await Product.findByIdAndUpdate(id, allowedData, {
-      new: true,
-      runValidators: true,
-    }).populate("category", "name slug");
-
-    if (!product) {
-      throw new Error("Product not found");
-    }
-
-    return product;
   }
 
   // Delete product (soft delete)

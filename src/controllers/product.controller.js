@@ -184,17 +184,28 @@ const ProductController = {
     );
   }),
 
-  // Update product
+  // Trong controller, thêm debug cho validator error
   updateProduct: catchAsync(async (req, res) => {
     // Validate request body
+    console.log(`Check req.body in controller: ${JSON.stringify(req.body)}`);
     const { error, value } = updateProductValidator.validate(req.body, {
       abortEarly: false,
     });
 
     if (error) {
-      const errors = error.details.map((detail) => detail.message);
+      console.log("=== VALIDATION ERROR DETAILS ===");
+      console.log("Error details:", error.details);
+      const errors = error.details.map((detail) => {
+        console.log(
+          `Field: ${detail.path}, Message: ${detail.message}, Value: ${detail.context?.value}`
+        );
+        return detail.message;
+      });
+      console.log("=== END VALIDATION ERROR ===");
       return sendFail(res, errors.join(", "), StatusCodes.BAD_REQUEST);
     }
+
+    console.log("Validated value:", value);
 
     const { id } = req.params;
     const product = await productService.updateProduct(id, value);
