@@ -7,9 +7,7 @@ const notificationSchema = new Schema(
       type: String,
       enum: [
         "order_status", // cập nhật trạng thái đơn hàng
-        "payment", // thanh toán
         "promotion", // khuyến mãi
-        "system", // thông báo chung từ hệ thống
       ],
       default: "system",
     },

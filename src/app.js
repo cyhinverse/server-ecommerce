@@ -4,8 +4,18 @@ const cors = require("cors");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const initRoutes = require("./routes");
-
+const http = require("http")
 const app = ex();
+const server = http.createServer(app)
+
+const {Server} = require("socket.io")
+
+const io = new Server(server, {
+	cors: {
+		methods: ["post","get"],
+		origin: "*"
+	}
+})
 
 // Middlewares
 app.use(morgan("dev"));
@@ -33,4 +43,8 @@ app.use((err, req, res, next) => {
     .json({ status: "Internal Server Error", message: err.message });
 });
 
-module.exports = app;
+module.exports = {
+	io,
+	server
+}
+``
