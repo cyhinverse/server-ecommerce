@@ -106,14 +106,13 @@ const orderIdParamValidator = joi.object({
     }),
 });
 
-// Query params for get orders
 const getOrdersQueryValidator = joi.object({
-  page: joi.number().integer().min(1).default(1).messages({
+  page: joi.number().integer().min(1).default(1).optional().messages({
     "number.base": "Page must be a number",
     "number.integer": "Page must be an integer",
     "number.min": "Page must be at least 1",
   }),
-  limit: joi.number().integer().min(1).max(100).default(10).messages({
+  limit: joi.number().integer().min(1).max(100).default(10).optional().messages({
     "number.base": "Limit must be a number",
     "number.integer": "Limit must be an integer",
     "number.min": "Limit must be at least 1",
@@ -129,15 +128,32 @@ const getOrdersQueryValidator = joi.object({
       "delivered",
       "cancelled"
     )
+    .optional()
     .messages({
       "string.base": "Status must be a string",
-      "any.only":
-        "Status must be one of: pending, confirmed, processing, shipped, delivered, cancelled",
+      "any.only": "Status must be one of: pending, confirmed, processing, shipped, delivered, cancelled",
     }),
-  paymentStatus: joi.string().valid("unpaid", "paid", "refunded").messages({
-    "string.base": "Payment status must be a string",
-    "any.only": "Payment status must be one of: unpaid, paid, refunded",
-  }),
+  paymentStatus: joi
+    .string()
+    .valid("unpaid", "paid", "refunded")
+    .optional()
+    .messages({
+      "string.base": "Payment status must be a string",
+      "any.only": "Payment status must be one of: unpaid, paid, refunded",
+    }),
+  paymentMethod: joi
+    .string()
+    .valid("cod", "vnpay")
+    .optional()
+    .messages({
+      "string.base": "Payment method must be a string",
+      "any.only": "Payment method must be one of: cod, vnpay",
+    }),
+  userId: joi.string().hex().length(24).optional().messages({
+    "string.base": "User ID must be a string",
+    "string.hex": "User ID must be a valid hex string",
+    "string.length": "User ID must be 24 characters long",
+  })
 });
 
 module.exports = {

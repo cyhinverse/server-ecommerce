@@ -1,42 +1,47 @@
-const Notification = require("../models/Notification");
-const { io } = require("../app");
+const Notification = require("../models/notification.model.js");
 
 class NotificationService {
   constructor() {
-    this.setupSocketHandlers();
+    this.io = null;
   }
 
-  // 🎯 SETUP SOCKET HANDLERS TRỰC TIẾP
+  // 🎯 SET IO INSTANCE
+  setIO(ioInstance) {
+    this.io = ioInstance;
+    this.setupSocketHandlers();
+    console.log('🔌 Socket.IO initialized for NotificationService');
+  }
+
+  // 🎯 SETUP SOCKET HANDLERS
   setupSocketHandlers() {
-    io.on("connection", (socket) => {
+    if (!this.io) {
+      throw new Error("Socket.IO chưa được khởi tạo");
+    }
+
+    this.io.on("connection", (socket) => {
       console.log(`🔗 Client connected: ${socket.id}`);
 
-      // 🎯 CLIENT → SERVER: Join room
+      // 1. Join notification room
       socket.on("join_notification_room", (userId) => {
         this.handleJoinRoom(socket, userId);
       });
 
-      // 🎯 CLIENT → SERVER: Request notification
-      socket.on("request_notification", async (data) => {
-        await this.handleClientRequest(socket, data);
-      });
-
-      // 🎯 CLIENT → SERVER: Mark as read
-      socket.on("mark_notification_read", async (data) => {
-        await this.handleMarkAsRead(socket, data);
-      });
-
-      // 🎯 CLIENT → SERVER: Get notifications
+      // 2. Get notifications
       socket.on("get_notifications", async (data) => {
         await this.handleGetNotifications(socket, data);
       });
 
-      // 🎯 CLIENT → SERVER: Mark all as read
+      // 3. Mark as read
+      socket.on("mark_notification_read", async (data) => {
+        await this.handleMarkAsRead(socket, data);
+      });
+
+      // 4. Mark all as read
       socket.on("mark_all_read", async (data) => {
         await this.handleMarkAllAsRead(socket, data);
       });
 
-      // 🎯 CLIENT → SERVER: Get unread count
+      // 5. Get unread count
       socket.on("get_unread_count", async (data) => {
         await this.handleGetUnreadCount(socket, data);
       });
@@ -48,14 +53,17 @@ class NotificationService {
   }
 
   // ==============================================
-  // 🎯 SOCKET HANDLERS (CLIENT → SERVER → CLIENT)
+  // 🎯 5 CORE SOCKET HANDLERS
   // ==============================================
 
   async handleJoinRoom(socket, userId) {
     try {
+      if (!userId) {
+        throw new Error("User ID là bắt buộc");
+      }
+
       socket.join(`user_${userId}`);
-      
-      // 🎯 SERVER → CLIENT: Confirmation
+
       socket.emit("room_joined", {
         success: true,
         room: `user_${userId}`,
@@ -71,71 +79,14 @@ class NotificationService {
     }
   }
 
-  async handleClientRequest(socket, data) {
-    try {
-      const { userId, title, message, type = "promotion" } = data;
-      
-      const notification = await Notification.create({
-        userId,
-        type,
-        title,
-        message
-      });
-
-      await notification.populate("userId", "name email");
-
-      // 🎯 SERVER → CLIENT: Send the created notification
-      socket.emit("notification_created", {
-        success: true,
-        data: notification,
-        message: "Thông báo đã được tạo thành công"
-      });
-
-      console.log(`📨 Client-requested notification created for user ${userId}`);
-    } catch (error) {
-      socket.emit("notification_error", {
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  async handleMarkAsRead(socket, data) {
-    try {
-      const { notificationId, userId } = data;
-      
-      const notification = await Notification.findOneAndUpdate(
-        { _id: notificationId, userId },
-        { 
-          isRead: true,
-          readAt: new Date()
-        },
-        { new: true }
-      ).populate("userId", "name email");
-
-      if (!notification) {
-        throw new Error("Không tìm thấy thông báo");
-      }
-
-      // 🎯 SERVER → CLIENT: Confirmation
-      socket.emit("mark_read_success", {
-        success: true,
-        data: notification,
-        message: "Đã đánh dấu đã đọc"
-      });
-
-    } catch (error) {
-      socket.emit("mark_read_error", {
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
   async handleGetNotifications(socket, data) {
     try {
       const { userId, page = 1, limit = 20, isRead } = data;
-      
+
+      if (!userId) {
+        throw new Error("User ID là bắt buộc");
+      }
+
       const filter = { userId };
       if (isRead !== undefined) filter.isRead = isRead;
 
@@ -147,12 +98,11 @@ class NotificationService {
         .populate("orderId", "orderNumber status");
 
       const total = await Notification.countDocuments(filter);
-      const unreadCount = await Notification.countDocuments({ 
-        userId, 
-        isRead: false 
+      const unreadCount = await Notification.countDocuments({
+        userId,
+        isRead: false
       });
 
-      // 🎯 SERVER → CLIENT: Send notifications data
       socket.emit("notifications_data", {
         success: true,
         data: notifications,
@@ -173,19 +123,57 @@ class NotificationService {
     }
   }
 
+  async handleMarkAsRead(socket, data) {
+    try {
+      const { notificationId, userId } = data;
+
+      if (!notificationId || !userId) {
+        throw new Error("Thiếu notificationId hoặc userId");
+      }
+
+      const notification = await Notification.findOneAndUpdate(
+        { _id: notificationId, userId },
+        {
+          isRead: true,
+          readAt: new Date()
+        },
+        { new: true }
+      ).populate("userId", "name email");
+
+      if (!notification) {
+        throw new Error("Không tìm thấy thông báo");
+      }
+
+      socket.emit("mark_read_success", {
+        success: true,
+        data: notification,
+        message: "Đã đánh dấu đã đọc"
+      });
+
+    } catch (error) {
+      socket.emit("mark_read_error", {
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
   async handleMarkAllAsRead(socket, data) {
     try {
       const { userId } = data;
-      
+
+      if (!userId) {
+        throw new Error("User ID là bắt buộc");
+      }
+
       const result = await Notification.updateMany(
         { userId, isRead: false },
-        { 
+        {
           isRead: true,
           readAt: new Date()
         }
       );
 
-      // 🎯 SERVER → CLIENT: Confirmation
       socket.emit("mark_all_read_success", {
         success: true,
         modifiedCount: result.modifiedCount,
@@ -203,13 +191,16 @@ class NotificationService {
   async handleGetUnreadCount(socket, data) {
     try {
       const { userId } = data;
-      
+
+      if (!userId) {
+        throw new Error("User ID là bắt buộc");
+      }
+
       const unreadCount = await Notification.countDocuments({
         userId,
         isRead: false
       });
 
-      // 🎯 SERVER → CLIENT: Send count
       socket.emit("unread_count_data", {
         success: true,
         unreadCount,
@@ -225,48 +216,39 @@ class NotificationService {
   }
 
   // ==============================================
-  // 🎯 SERVER → CLIENT METHODS (Auto/HTTP-triggered)
+  // 🎯 5 CORE SERVER METHODS
   // ==============================================
 
-  // 🎯 Tạo và gửi thông báo tự động
+  // 1. Tạo và gửi thông báo
   async createAndSendNotification(notificationData) {
     try {
+      if (!this.io) {
+        throw new Error("Socket.IO chưa được khởi tạo");
+      }
+
       const notification = await Notification.create(notificationData);
       await notification.populate("userId", "name email");
+
       if (notificationData.orderId) {
         await notification.populate("orderId", "orderNumber status");
       }
 
-      // 🎯 SERVER → CLIENT: Real-time emission
-      io.to(`user_${notificationData.userId}`).emit('new_notification', {
+      // Gửi real-time
+      this.io.to(`user_${notificationData.userId}`).emit('new_notification', {
         success: true,
-        data: notification,
-        type: 'auto'
+        data: notification
       });
 
-      console.log(`🔔 Auto notification sent to user_${notificationData.userId}`);
       return notification;
 
     } catch (error) {
-      console.error('❌ Error sending auto notification:', error);
+      console.error('❌ Error sending notification:', error);
       throw error;
     }
   }
 
-  // 🎯 Thông báo đơn hàng mới
-  async notifyNewOrder(order) {
-    return this.createAndSendNotification({
-      userId: order.userId,
-      type: "order_status",
-      title: "Đơn hàng mới",
-      message: `Đơn hàng #${order.orderNumber} đã được tạo thành công`,
-      orderId: order._id,
-      link: `/orders/${order._id}`
-    });
-  }
-
-  // 🎯 Thông báo cập nhật trạng thái đơn hàng
-  async notifyOrderStatusUpdate(order, newStatus) {
+  // 2. Thông báo đơn hàng
+  async notifyOrderStatus(order, status) {
     const statusMessages = {
       'pending': 'đang chờ xử lý',
       'confirmed': 'đã được xác nhận',
@@ -279,66 +261,81 @@ class NotificationService {
       userId: order.userId,
       type: "order_status",
       title: "Cập nhật đơn hàng",
-      message: `Đơn hàng #${order.orderNumber} ${statusMessages[newStatus]}`,
+      message: `Đơn hàng #${order.orderNumber} ${statusMessages[status]}`,
       orderId: order._id,
       link: `/orders/${order._id}`
     });
   }
 
-  // 🎯 Gửi thông báo khuyến mãi
-  async sendPromotion(userId, promotionData) {
+  // 3. Thông báo khuyến mãi
+  async sendPromotion(userId, title, message, link = null) {
     return this.createAndSendNotification({
       userId,
       type: "promotion",
-      title: promotionData.title,
-      message: promotionData.message,
-      link: promotionData.link
+      title,
+      message,
+      link
     });
   }
 
-  // 🎯 Broadcast promotion đến nhiều users
-  async broadcastPromotion(userIds, promotionData) {
+  // 4. Thông báo hệ thống
+  async sendSystemNotification(userId, title, message, link = null) {
+    return this.createAndSendNotification({
+      userId,
+      type: "system",
+      title,
+      message,
+      link
+    });
+  }
+
+  // 5. Broadcast đến nhiều users
+  async broadcastToUsers(userIds, notificationData) {
     try {
+      if (!this.io) {
+        throw new Error("Socket.IO chưa được khởi tạo");
+      }
+
       const notifications = await Promise.all(
-        userIds.map(userId => 
+        userIds.map(userId =>
           Notification.create({
             userId,
-            type: "promotion",
-            title: promotionData.title,
-            message: promotionData.message,
-            link: promotionData.link
+            type: notificationData.type,
+            title: notificationData.title,
+            message: notificationData.message,
+            link: notificationData.link
           })
         )
       );
 
-      // 🎯 SERVER → CLIENT: Broadcast real-time
+      // Gửi real-time đến tất cả users
       userIds.forEach(userId => {
-        io.to(`user_${userId}`).emit('promotion_notification', {
+        this.io.to(`user_${userId}`).emit('new_notification', {
           success: true,
           data: {
-            title: promotionData.title,
-            message: promotionData.message,
-            link: promotionData.link
+            type: notificationData.type,
+            title: notificationData.title,
+            message: notificationData.message,
+            link: notificationData.link
           }
         });
       });
 
-      console.log(`📢 Promotion broadcast to ${userIds.length} users`);
       return notifications;
 
     } catch (error) {
-      console.error('❌ Error broadcasting promotion:', error);
+      console.error('❌ Error broadcasting:', error);
       throw error;
     }
   }
 
   // ==============================================
-  // 🎯 QUERY METHODS (cho HTTP API)
+  // 🎯 HTTP API METHODS
   // ==============================================
 
   async getUserNotifications(userId, query = {}) {
     const { page = 1, limit = 20, isRead } = query;
-    
+
     const filter = { userId };
     if (isRead !== undefined) filter.isRead = isRead;
 
@@ -350,9 +347,9 @@ class NotificationService {
       .populate("orderId", "orderNumber status");
 
     const total = await Notification.countDocuments(filter);
-    const unreadCount = await Notification.countDocuments({ 
-      userId, 
-      isRead: false 
+    const unreadCount = await Notification.countDocuments({
+      userId,
+      isRead: false
     });
 
     return {
@@ -367,27 +364,10 @@ class NotificationService {
     };
   }
 
-  async markNotificationAsRead(notificationId, userId) {
-    const notification = await Notification.findOneAndUpdate(
-      { _id: notificationId, userId },
-      { 
-        isRead: true,
-        readAt: new Date()
-      },
-      { new: true }
-    ).populate("userId", "name email");
-
-    if (!notification) {
-      throw new Error("Notification not found");
-    }
-
-    return notification;
-  }
-
   async markAllAsRead(userId) {
     const result = await Notification.updateMany(
       { userId, isRead: false },
-      { 
+      {
         isRead: true,
         readAt: new Date()
       }
@@ -403,19 +383,6 @@ class NotificationService {
     });
 
     return { unreadCount };
-  }
-
-  async deleteNotification(notificationId, userId) {
-    const notification = await Notification.findOneAndDelete({
-      _id: notificationId,
-      userId
-    });
-
-    if (!notification) {
-      throw new Error("Notification not found");
-    }
-
-    return notification;
   }
 }
 

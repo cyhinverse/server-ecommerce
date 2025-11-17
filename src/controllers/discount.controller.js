@@ -37,6 +37,7 @@ const DiscountController = {
   // Get all discounts (Admin only)
   getAllDiscounts: catchAsync(async (req, res) => {
     // Validate query params
+    console.log(`Thong tin nguoi dung ${JSON.stringify(req.user)}`)
     const { error, value } = getDiscountsQueryValidator.validate(req.query, {
       abortEarly: false,
     });
@@ -47,6 +48,7 @@ const DiscountController = {
     }
 
     const result = await discountService.getAllDiscounts(value);
+    console.log(`Data tu controller discount`, result)
 
     return sendSuccess(
       res,
