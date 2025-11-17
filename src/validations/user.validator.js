@@ -148,7 +148,7 @@ const mongoIdParamValidator = joi.object({
 
 // Address ID param validator
 const addressIdParamValidator = joi.object({
-  addressId: joi
+  id: joi
     .string()
     .pattern(/^[0-9a-fA-F]{24}$/)
     .required()

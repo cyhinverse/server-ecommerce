@@ -159,19 +159,19 @@ class UserService {
     return user.toObject({ transform: true, versionKey: false });
   }
 
-  // Delete address
-  async deleteAddress(userId, addressId) {
-    const user = await userModel.findByIdAndUpdate(
+  async deleteAddress(userId, addressId) {    
+    // Thực hiện xóa
+    const userAfter = await userModel.findByIdAndUpdate(
       userId,
       { $pull: { addresses: { _id: addressId } } },
       { new: true, select: "-password" }
     );
-
-    if (!user) {
+    
+    if (!userAfter) {
       throw new Error("User not found");
     }
 
-    return user;
+    return userAfter;
   }
 
   // Get all addresses

@@ -21,6 +21,20 @@ router
   .get(verifyAccessToken, userController.getProfile)
   .put(verifyAccessToken, userController.updateProfile);
 
+
+// Address routes - ĐƯA LÊN TRƯỚC
+router.post("/address", verifyAccessToken, userController.addAddress);
+router.put("/address/:id", verifyAccessToken, userController.updateAddress);
+router.delete("/address/:id",verifyAccessToken, userController.deleteAddress);
+router.get("/address", verifyAccessToken, userController.getAddresses);
+
+// Password management
+router.put(
+  "/change-password",
+  verifyAccessToken,
+  userController.changePassword
+);
+
 // User management routes (Admin only)
 router.get(
   "/",
@@ -52,7 +66,6 @@ router.put(
   userController.updateUserRole
 );
 
-// User by ID routes
 router
   .route("/:id")
   .get(verifyAccessToken, requireRole("admin"), userController.getUserById)
@@ -63,19 +76,6 @@ router.delete(
   verifyAccessToken,
   requireRole("admin"),
   userController.deleteUser
-);
-
-// Address routes
-router.post("/address", verifyAccessToken, userController.addAddress);
-router.put("/address/:id", verifyAccessToken, userController.updateAddress);
-router.delete("/address/:id", verifyAccessToken, userController.deleteAddress);
-router.get("/address", verifyAccessToken, userController.getAddresses);
-
-// Password management
-router.put(
-  "/change-password",
-  verifyAccessToken,
-  userController.changePassword
 );
 
 module.exports = router;

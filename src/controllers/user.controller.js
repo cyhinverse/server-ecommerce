@@ -185,14 +185,17 @@ const UserController = {
     const { error, value } = addressIdParamValidator.validate(req.params, {
       abortEarly: false,
     });
-
+    console.log(req.params)
     if (error) {
       const errors = error.details.map((detail) => detail.message);
       return sendFail(res, errors.join(", "), StatusCodes.BAD_REQUEST);
     }
 
     const userId = req.user.userId;
-    const user = await userService.deleteAddress(userId, value.addressId);
+    const user = await userService.deleteAddress(userId, value.id);
+    if(!user) {
+      throw new Error("Error")
+    }
     return sendSuccess(
       res,
       user,
