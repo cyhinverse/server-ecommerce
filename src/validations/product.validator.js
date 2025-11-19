@@ -445,6 +445,21 @@ const specialProductsQueryValidator = joi.object({
   }),
 });
 
+
+const searchQueryValidator = joi.object({
+  q: joi.string().required().min(1).messages({
+    "string.base": "Search query must be a string",
+    "string.min": "Search query must be at least 1 character long",
+    "any.required": "Search query is required",
+  }),
+  limit: joi.number().integer().min(1).max(100).default(10).messages({
+    "number.base": "Limit must be a number",
+    "number.integer": "Limit must be an integer",
+    "number.min": "Limit must be at least 1",
+    "number.max": "Limit cannot exceed 100",
+  }),
+});
+
 module.exports = {
   createProductValidator,
   updateProductValidator,
@@ -459,4 +474,7 @@ module.exports = {
   paginationQueryValidator,
   limitQueryValidator,
   specialProductsQueryValidator,
+  searchQueryValidator,
 };
+
+

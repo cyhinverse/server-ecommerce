@@ -149,6 +149,8 @@ const UserController = {
 
   // Update address
   updateAddress: catchAsync(async (req, res) => {
+    console.log(`Check data from user controller`, req.params);
+    console.log(`Check data from user controller`, req.body);
     const { error: paramError, value: paramValue } =
       addressIdParamValidator.validate(req.params, { abortEarly: false });
 
@@ -193,7 +195,7 @@ const UserController = {
 
     const userId = req.user.userId;
     const user = await userService.deleteAddress(userId, value.id);
-    if(!user) {
+    if (!user) {
       throw new Error("Error")
     }
     return sendSuccess(

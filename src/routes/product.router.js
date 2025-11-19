@@ -20,6 +20,14 @@ const upload = require("../configs/upload");
 router.get("/", productController.getAllProducts);
 
 /**
+ * @route   GET /api/products/search
+ * @desc    Search products (autocomplete)
+ * @access  Public
+ * @query   q, limit
+ */
+router.get("/search", productController.searchProducts);
+
+/**
  * @route   GET /api/products/featured
  * @desc    Get featured products
  * @access  Public

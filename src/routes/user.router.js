@@ -24,8 +24,8 @@ router
 
 // Address routes - ĐƯA LÊN TRƯỚC
 router.post("/address", verifyAccessToken, userController.addAddress);
-router.put("/address/:id", verifyAccessToken, userController.updateAddress);
-router.delete("/address/:id",verifyAccessToken, userController.deleteAddress);
+router.put("/address/:addressId", verifyAccessToken, userController.updateAddress);
+router.delete("/address/:addressId", verifyAccessToken, userController.deleteAddress);
 router.get("/address", verifyAccessToken, userController.getAddresses);
 
 // Password management

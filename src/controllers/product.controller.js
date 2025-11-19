@@ -16,6 +16,7 @@ const {
   paginationQueryValidator,
   limitQueryValidator,
   specialProductsQueryValidator,
+  searchQueryValidator,
 } = require("../validations/product.validator");
 const { uploadImage, multiUpload } = require("../configs/cloudinary");
 
@@ -489,6 +490,27 @@ const ProductController = {
       res,
       result,
       "On sale products retrieved successfully",
+      StatusCodes.OK
+    );
+  }),
+
+  // Search products
+  searchProducts: catchAsync(async (req, res) => {
+    // Validate query
+    const { error, value } = searchQueryValidator.validate(req.query, {
+      abortEarly: false,
+    });
+
+    if (error) {
+      const errors = error.details.map((detail) => detail.message);
+      return sendFail(res, errors.join(", "), StatusCodes.BAD_REQUEST);
+    }
+
+    const result = await productService.searchProducts(value.q, value.limit);
+    return sendSuccess(
+      res,
+      result,
+      "Products found successfully",
       StatusCodes.OK
     );
   }),

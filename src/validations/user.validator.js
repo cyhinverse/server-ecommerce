@@ -1,36 +1,5 @@
 const joi = require("joi");
 
-// Validate address object
-const addressSchema = joi.object({
-  _id: joi.string().optional(), // Allow _id from MongoDB
-  fullName: joi.string().min(2).max(100).required().messages({
-    "string.base": "Full name must be a string",
-    "string.min": "Full name must be at least 2 characters long",
-    "string.max": "Full name must be at most 100 characters long",
-    "any.required": "Full name is required",
-  }),
-  phone: joi
-    .string()
-    .pattern(/^[0-9]{10,11}$/)
-    .required()
-    .messages({
-      "string.base": "Phone must be a string",
-      "string.pattern.base": "Phone must be 10-11 digits",
-      "any.required": "Phone is required",
-    }),
-  address: joi.string().allow("").messages({
-    "string.base": "Address must be a string",
-  }),
-  city: joi.string().allow("").messages({
-    "string.base": "City must be a string",
-  }),
-  district: joi.string().allow("").messages({
-    "string.base": "District must be a string",
-  }),
-  ward: joi.string().allow("").messages({
-    "string.base": "Ward must be a string",
-  }),
-});
 
 // Update user profile validator
 const updateProfileValidator = joi.object({
@@ -60,13 +29,11 @@ const addAddressValidator = joi.object({
   phone: joi
     .string()
     .pattern(/^[0-9]{10,11}$/)
-    .required()
     .messages({
       "string.base": "Phone must be a string",
       "string.pattern.base": "Phone must be 10-11 digits",
-      "any.required": "Phone is required",
     }),
-  address: joi.string().required().messages({
+  address: joi.string().messages({
     "string.base": "Address must be a string",
     "any.required": "Address is required",
   }),
@@ -81,6 +48,9 @@ const addAddressValidator = joi.object({
   ward: joi.string().required().messages({
     "string.base": "Ward must be a string",
     "any.required": "Ward is required",
+  }),
+  isDefault: joi.boolean().messages({
+    "boolean.base": "isDefault must be a boolean",
   }),
 });
 
@@ -98,17 +68,20 @@ const updateAddressValidator = joi.object({
       "string.base": "Phone must be a string",
       "string.pattern.base": "Phone must be 10-11 digits",
     }),
-  address: joi.string().messages({
+  address: joi.string().optional().messages({
     "string.base": "Address must be a string",
   }),
-  city: joi.string().messages({
+  city: joi.string().optional().messages({
     "string.base": "City must be a string",
   }),
-  district: joi.string().messages({
+  district: joi.string().optional().messages({
     "string.base": "District must be a string",
   }),
-  ward: joi.string().messages({
+  ward: joi.string().optional().messages({
     "string.base": "Ward must be a string",
+  }),
+  isDefault: joi.boolean().optional().messages({
+    "boolean.base": "isDefault must be a boolean",
   }),
 });
 
@@ -123,15 +96,6 @@ const changePasswordValidator = joi.object({
     "string.min": "New password must be at least 6 characters long",
     "any.required": "New password is required",
   }),
-  confirmPassword: joi
-    .string()
-    .valid(joi.ref("newPassword"))
-    .required()
-    .messages({
-      "string.base": "Confirm password must be a string",
-      "any.only": "Confirm password must match new password",
-      "any.required": "Confirm password is required",
-    }),
 });
 
 // MongoDB ObjectId param validator
@@ -148,7 +112,7 @@ const mongoIdParamValidator = joi.object({
 
 // Address ID param validator
 const addressIdParamValidator = joi.object({
-  id: joi
+  addressId: joi
     .string()
     .pattern(/^[0-9a-fA-F]{24}$/)
     .required()

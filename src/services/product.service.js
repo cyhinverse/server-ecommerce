@@ -482,6 +482,25 @@ class ProductService {
 
     return products;
   }
+  // Search products (optimized for search bar/autocomplete)
+  async searchProducts(keyword, limit = 10) {
+    const query = {
+      isActive: true,
+      $or: [
+        { name: { $regex: keyword, $options: "i" } },
+        { description: { $regex: keyword, $options: "i" } },
+        { "category.name": { $regex: keyword, $options: "i" } },
+      ],
+    };
+
+    const products = await Product.find(query)
+      .select("name slug images price category")
+      .populate("category", "name slug")
+      .limit(Number(limit))
+      .lean();
+
+    return products;
+  }
 }
 
 module.exports = new ProductService();

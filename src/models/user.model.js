@@ -11,6 +11,7 @@ const addressSchema = new Schema({
   city: String,
   district: String,
   ward: String,
+  isDefault: Boolean
 });
 
 const userSchema = new Schema(
