@@ -6,6 +6,11 @@ const paymentSchema = new Schema({
         ref: "Order",
         required: true,
     },
+    userId: {
+        type: Types.ObjectId,
+        ref: "User",
+        required: true,
+    },
     amount: {
         type: Number,
         required: true,
@@ -20,23 +25,32 @@ const paymentSchema = new Schema({
         enum: ["cod", "vnpay"],
         default: "cod",
     },
-    paymentStatus: {
+    // VNPay specific fields
+    transactionId: {
         type: String,
-        enum: ["unpaid", "paid", "refunded"],
-        default: "unpaid",
+        unique: true,
+        sparse: true, // Allow null for COD payments
+    },
+    paymentUrl: {
+        type: String,
+        default: null,
+    },
+    vnpayData: {
+        type: Schema.Types.Mixed,
+        default: null,
     },
     paymentDate: {
         type: Date,
-        default: Date.now,
-    },
-    paymentGateway: {
-        type: String,
-        default: "vnpay",
+        default: null,
     },
 
 }, {
     timestamps: true,
     collection: "payments",
 });
+
+// Index for quick lookup by transaction ID
+paymentSchema.index({ transactionId: 1 });
+paymentSchema.index({ orderId: 1 });
 
 module.exports = model("Payment", paymentSchema);

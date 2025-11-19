@@ -1,4 +1,4 @@
-const { server, io } = require("./app"); // Import từ app.js
+const { server, io } = require("./app");
 const connectDB = require("./db/connect.db");
 const dotenv = require("dotenv");
 dotenv.config();
@@ -7,7 +7,6 @@ const NotificationService = require("./services/notification.service");
 
 const PORT = process.env.PORT || 3000;
 
-// 🎯 SETUP NOTIFICATION SERVICE VỚI IO
 NotificationService.setIO(io);
 
 const startServer = () => {
@@ -24,7 +23,6 @@ const startServer = () => {
   });
 };
 
-// 🎯 CLUSTER MODE - CHỈ SETUP SOCKET.IO TRONG WORKER
 if (cluster.isPrimary) {
   const numWorkers = require('os').cpus().length;
   console.log(`Primary ${process.pid} is running. Forking ${numWorkers} workers...`);
@@ -38,6 +36,5 @@ if (cluster.isPrimary) {
     cluster.fork();
   });
 } else {
-  console.log(`Worker ${process.pid} started`);
   startServer();
 }

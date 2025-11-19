@@ -12,8 +12,8 @@ const { Server } = require("socket.io")
 
 const io = new Server(server, {
   cors: {
-    methods: ["POST", "GET"], // Sửa "post","get" thành "POST","GET"
-    origin: process.env.FRONTEND_URL || "http://localhost:3000" // Nên dùng biến môi trường
+    methods: ["POST", "GET"],
+    origin: process.env.FRONTEND_URL || "http://localhost:3000"
   }
 })
 
@@ -22,12 +22,12 @@ app.use(morgan("dev"));
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    credentials: true, // Allow cookies
+    credentials: true,
   })
 );
 app.use(ex.json());
 app.use(ex.urlencoded({ extended: true }));
-app.use(cookieParser()); // Parse cookies
+app.use(cookieParser());
 app.use(helmet());
 
 initRoutes(app);
@@ -43,7 +43,6 @@ app.use((err, req, res, next) => {
     .json({ status: "Internal Server Error", message: err.message });
 });
 
-// 🎯 QUAN TRỌNG: Export như thế này
 module.exports = {
   io,
   server,
